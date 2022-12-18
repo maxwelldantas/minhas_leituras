@@ -1,115 +1,253 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'repository/database/sql_helper.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+        // Remove the debug banner
+        debugShowCheckedModeBanner: false,
+        title: 'Minhas Leituras',
+        theme: ThemeData(
+          primarySwatch: Colors.orange,
+        ),
+        home: const HomePage());
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class HomePage extends StatefulWidget {
+  const HomePage({Key? key}) : super(key: key);
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _HomePageState createState() => _HomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _HomePageState extends State<HomePage> {
+  // All livros
+  List<Map<String, dynamic>> _livros = [];
 
-  void _incrementCounter() {
+  bool _isLoading = true;
+
+  // This function is used to fetch all data from the database
+  void _refreshLivros() async {
+    final data = await SQLHelper.getLivros();
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _livros = data;
+      _isLoading = false;
     });
   }
 
   @override
+  void initState() {
+    super.initState();
+    _refreshLivros(); // Loading the diary when the app starts
+  }
+
+  final TextEditingController _isbnController = TextEditingController();
+  final TextEditingController _autorController = TextEditingController();
+  final TextEditingController _tituloController = TextEditingController();
+  final TextEditingController _anoController = TextEditingController();
+  final TextEditingController _paginasController = TextEditingController();
+  final TextEditingController _paginaLeituraController =
+      TextEditingController();
+
+  // This function will be triggered when the floating button is pressed
+  // It will also be triggered when you want to update an livro
+  void _showForm(int? id) async {
+    if (id != null) {
+      // id == null -> create new livro
+      // id != null -> update an existing livro
+      final existingLivros =
+          _livros.firstWhere((element) => element['id'] == id);
+      _isbnController.text = existingLivros['isbn'];
+      _autorController.text = existingLivros['autor'];
+      _tituloController.text = existingLivros['titulo'];
+      _anoController.text = existingLivros['ano'].toString();
+      _paginasController.text = existingLivros['paginas'].toString();
+      _paginaLeituraController.text =
+          existingLivros['paginaLeitura'].toString();
+    }
+
+    showModalBottomSheet(
+        context: context,
+        elevation: 5,
+        isScrollControlled: true,
+        builder: (_) => Container(
+              padding: EdgeInsets.only(
+                top: 15,
+                left: 15,
+                right: 15,
+                // this will prevent the soft keyboard from covering the text fields
+                bottom: MediaQuery.of(context).viewInsets.bottom + 120,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    controller: _isbnController,
+                    decoration: const InputDecoration(hintText: 'ISBN'),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _autorController,
+                    decoration: const InputDecoration(hintText: 'Autor'),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _tituloController,
+                    decoration: const InputDecoration(hintText: 'Título'),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _anoController,
+                    decoration: const InputDecoration(hintText: 'Ano'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _paginasController,
+                    decoration: const InputDecoration(hintText: 'Páginas'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _paginaLeituraController,
+                    decoration: const InputDecoration(
+                        hintText: 'Página última leitura'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      // Save new livro
+                      if (id == null) {
+                        await _addLivro();
+                      }
+
+                      if (id != null) {
+                        await _updateLivro(id);
+                      }
+
+                      // Clear the text fields
+                      _isbnController.text = '';
+                      _autorController.text = '';
+                      _tituloController.text = '';
+                      _anoController.text = '';
+                      _paginasController.text = '';
+                      _paginaLeituraController.text = '';
+
+                      // Close the bottom sheet
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(id == null ? 'Create New' : 'Update'),
+                  )
+                ],
+              ),
+            ));
+  }
+
+// Insert a new livro to the database
+  Future<void> _addLivro() async {
+    await SQLHelper.createLivro(
+        _isbnController.text,
+        _autorController.text,
+        _tituloController.text,
+        _anoController.text.isEmpty ? 0 : int.parse(_anoController.text),
+        _paginasController.text.isEmpty
+            ? 0
+            : int.parse(_paginasController.text));
+    _refreshLivros();
+  }
+
+  // Update an existing livro
+  Future<void> _updateLivro(int id) async {
+    await SQLHelper.updateLivro(
+        id,
+        _isbnController.text,
+        _autorController.text,
+        _tituloController.text,
+        _anoController.text.isEmpty ? 0 : int.parse(_anoController.text),
+        _paginasController.text.isEmpty
+            ? 0
+            : int.parse(_paginasController.text),
+        _paginaLeituraController.text.isEmpty
+            ? 0
+            : int.parse(_paginaLeituraController.text));
+    _refreshLivros();
+  }
+
+  // Delete an livro
+  void _deleteLivro(int id) async {
+    await SQLHelper.deleteLivro(id);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Livro removido com sucesso!'),
+    ));
+    _refreshLivros();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('Minhas Leituras'),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : ListView.builder(
+              itemCount: _livros.length,
+              itemBuilder: (context, index) => Card(
+                color: Colors.orange[200],
+                margin: const EdgeInsets.all(15),
+                child: ListTile(
+                    title: Text('Título: ' + _livros[index]['titulo']),
+                    subtitle: Text('Página última leitura: ' + _livros[index]['paginaLeitura'].toString()),
+                    trailing: SizedBox(
+                      width: 100,
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => _showForm(_livros[index]['id']),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () => _deleteLivro(_livros[index]['id']),
+                          ),
+                        ],
+                      ),
+                    )),
+              ),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
-        ),
-      ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
         child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+        onPressed: () => _showForm(null),
+      ),
     );
   }
 }
