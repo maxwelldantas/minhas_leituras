@@ -4,13 +4,18 @@ class Livro {
   late String _autor;
   late String _titulo;
   late int _ano;
-  late int _paginas;
+  late String _editora;
+  late int _qtdPagina;
   late int _paginaLeitura;
+  late bool _lido;
+  late int _qtdLido;
   var _criadoEm;
   var _atualizadoEm;
 
-  Livro(this._isbn, this._autor, this._titulo, this._ano,
-      this._paginas, this._paginaLeitura);
+  Livro.padrao();
+
+  Livro(this._isbn, this._autor, this._titulo, this._ano, this._editora,
+      this._qtdPagina, this._paginaLeitura, this._lido, this._qtdLido);
 
   get atualizadoEm => _atualizadoEm;
 
@@ -24,16 +29,34 @@ class Livro {
     _criadoEm = value;
   }
 
+  int get qtdLido => _qtdLido;
+
+  set qtdLido(int value) {
+    _qtdLido = value;
+  }
+
+  bool get lido => _lido;
+
+  set lido(bool value) {
+    _lido = value;
+  }
+
   int get paginaLeitura => _paginaLeitura;
 
   set paginaLeitura(int value) {
     _paginaLeitura = value;
   }
 
-  int get paginas => _paginas;
+  int get qtdPagina => _qtdPagina;
 
-  set paginas(int value) {
-    _paginas = value;
+  set qtdPagina(int value) {
+    _qtdPagina = value;
+  }
+
+  String get editora => _editora;
+
+  set editora(String value) {
+    _editora = value;
   }
 
   int get ano => _ano;

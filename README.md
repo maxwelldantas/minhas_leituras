@@ -1,4 +1,4 @@
-# minhas_leituras
+# Minhas Leituras
 ## Projeto Flutter
 
 * Salvar os livros que venho lendo.

@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.github.maxwelldantas.minhas_leituras">
    <application
-        android:label="minhas_leituras"
+        android:label="Minhas Leituras"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
