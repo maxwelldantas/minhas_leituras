@@ -81,9 +81,21 @@ class SQLHelper {
   }
 
   // Read all livros
-  static Future<List<Map<String, dynamic>>> getLivros() async {
+  static Future<List<Map<String, dynamic>>> getLivros(String? telas) async {
     final db = await SQLHelper.db();
-    return db.query('livros', orderBy: "atualizadoEm");
+    String filtro;
+    if ('paraLer'.contains(telas!)) {
+      filtro = 'false';
+      return db.query('livros', where: "lido = ?", whereArgs: [filtro]);
+    } else if ('lidos'.contains(telas)) {
+      filtro = 'true';
+      return db.query('livros', where: "lido = ?", whereArgs: [filtro]);
+    } else if ('favoritos'.contains(telas)) {
+      filtro = 'true';
+      return db.query('livros', where: "favorito = ?", whereArgs: [filtro]);
+    }
+    return db.query(null);
+    // return db.query('livros', orderBy: "atualizadoEm");
   }
 
   // Read a single livro by id

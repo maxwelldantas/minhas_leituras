@@ -59,7 +59,7 @@ class _ParaLerTela extends State<ParaLerWidget> {
 
   // This function is used to fetch all data from the database
   void _refreshLivros() async {
-    final data = await SQLHelper.getLivros();
+    final data = await SQLHelper.getLivros('paraLer');
     setState(() {
       _livros = data;
       _isLoading = false;
@@ -95,9 +95,13 @@ class _ParaLerTela extends State<ParaLerWidget> {
       _autorController.text = existingLivros['autor'];
       _tituloController.text = existingLivros['titulo'];
       _anoController.text = existingLivros['ano'].toString();
-      _qtdPaginaController.text = existingLivros['paginas'].toString();
+      _editoraController.text = existingLivros['editora'];
+      _qtdPaginaController.text = existingLivros['qtdPagina'].toString();
       _paginaLeituraController.text =
           existingLivros['paginaLeitura'].toString();
+      _lidoController =
+          existingLivros['lido'].toString() == 'true' ? true : false;
+      _qtdLidoController.text = existingLivros['qtdLido'].toString();
     }
 
     showModalBottomSheet(
@@ -155,25 +159,27 @@ class _ParaLerTela extends State<ParaLerWidget> {
                   const SizedBox(
                     height: 10,
                   ),
-                  TextField(
-                    controller: _paginaLeituraController,
-                    decoration: const InputDecoration(
-                        hintText: 'Página última leitura'),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                  CheckboxListTile(
-                    title: Text("Livro lido?"),
-                    value: _lidoController,
-                    onChanged: (bool? newValue) {
-                      setState(() {
-                        _lidoController = newValue ?? false;
-                      });
-                    },
-                    controlAffinity: ListTileControlAffinity.leading,  //  <-- leading Checkbox
+                  if (id != null)
+                    TextField(
+                      controller: _paginaLeituraController,
+                      decoration:
+                          const InputDecoration(hintText: 'Última página lida'),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                  if (id != null)
+                    const SizedBox(
+                      height: 10,
+                    ),
+                  StatefulBuilder(
+                    builder: (context, state) => CheckboxListTile(
+                      title: const Text("Livro lido?"),
+                      value: _lidoController,
+                      onChanged: (newValue) {
+                        state(() => _lidoController = newValue);
+                      },
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
                   ),
                   const SizedBox(
                     height: 10,
@@ -196,11 +202,13 @@ class _ParaLerTela extends State<ParaLerWidget> {
                       _anoController.text = '';
                       _qtdPaginaController.text = '';
                       _paginaLeituraController.text = '';
+                      _lidoController = false;
 
                       // Close the bottom sheet
                       Navigator.of(context).pop();
                     },
-                    child: Text(id == null ? 'Create New' : 'Update'),
+                    child: Text(
+                        id == null ? 'Cadastrar livro' : 'Atualizar livro'),
                   )
                 ],
               ),
@@ -275,9 +283,9 @@ class _ParaLerTela extends State<ParaLerWidget> {
                 color: Colors.orange[200],
                 margin: const EdgeInsets.all(15),
                 child: ListTile(
-                    title: Text('Título: ' + _livros[index]['titulo']),
-                    subtitle: Text('Página última leitura: ' +
-                        _livros[index]['paginaLeitura'].toString()),
+                    title: Text('Título: ${_livros[index]['titulo']}'),
+                    subtitle: Text(
+                        'Última pagina lida: ${_livros[index]['paginaLeitura']}'),
                     trailing: SizedBox(
                       width: 100,
                       child: Row(
@@ -296,7 +304,7 @@ class _ParaLerTela extends State<ParaLerWidget> {
               ),
             ),
       floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add_circle),
         onPressed: () => _showForm(null),
       ),
     );
@@ -317,7 +325,7 @@ class _LidosTela extends State<LidosWidget> {
 
   // This function is used to fetch all data from the database
   void _refreshLivros() async {
-    final data = await SQLHelper.getLivros();
+    final data = await SQLHelper.getLivros('lidos');
     setState(() {
       _livros = data;
       _isLoading = false;
@@ -337,7 +345,7 @@ class _LidosTela extends State<LidosWidget> {
   final TextEditingController _editoraController = TextEditingController();
   final TextEditingController _qtdPaginaController = TextEditingController();
   final TextEditingController _paginaLeituraController =
-  TextEditingController();
+      TextEditingController();
   final TextEditingController _lidoController = TextEditingController();
   final TextEditingController _qtdLidoController = TextEditingController();
 
@@ -348,7 +356,7 @@ class _LidosTela extends State<LidosWidget> {
       // id == null -> create new livro
       // id != null -> update an existing livro
       final existingLivros =
-      _livros.firstWhere((element) => element['id'] == id);
+          _livros.firstWhere((element) => element['id'] == id);
       _isbnController.text = existingLivros['isbn'];
       _autorController.text = existingLivros['autor'];
       _tituloController.text = existingLivros['titulo'];
@@ -363,93 +371,103 @@ class _LidosTela extends State<LidosWidget> {
         elevation: 5,
         isScrollControlled: true,
         builder: (_) => Container(
-          padding: EdgeInsets.only(
-            top: 15,
-            left: 15,
-            right: 15,
-            // this will prevent the soft keyboard from covering the text fields
-            bottom: MediaQuery.of(context).viewInsets.bottom + 120,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              TextField(
-                controller: _isbnController,
-                decoration: const InputDecoration(hintText: 'ISBN'),
+              padding: EdgeInsets.only(
+                top: 15,
+                left: 15,
+                right: 15,
+                // this will prevent the soft keyboard from covering the text fields
+                bottom: MediaQuery.of(context).viewInsets.bottom + 120,
               ),
-              const SizedBox(
-                height: 10,
-              ),
-              TextField(
-                controller: _autorController,
-                decoration: const InputDecoration(hintText: 'Autor'),
-              ),
-              const SizedBox(
-                height: 10,
-              ),
-              TextField(
-                controller: _tituloController,
-                decoration: const InputDecoration(hintText: 'Título'),
-              ),
-              const SizedBox(
-                height: 10,
-              ),
-              TextField(
-                controller: _anoController,
-                decoration: const InputDecoration(hintText: 'Ano'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-              const SizedBox(
-                height: 10,
-              ),
-              TextField(
-                controller: _qtdPaginaController,
-                decoration: const InputDecoration(hintText: 'Páginas'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-              const SizedBox(
-                height: 10,
-              ),
-              TextField(
-                controller: _paginaLeituraController,
-                decoration: const InputDecoration(
-                    hintText: 'Página última leitura'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-              const SizedBox(
-                height: 10,
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  // Save new livro
-                  if (id == null) {
-                    await _addLivro();
-                  }
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    controller: _isbnController,
+                    decoration: const InputDecoration(hintText: 'ISBN'),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _autorController,
+                    decoration: const InputDecoration(hintText: 'Autor'),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _tituloController,
+                    decoration: const InputDecoration(hintText: 'Título'),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _anoController,
+                    decoration: const InputDecoration(hintText: 'Ano'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _qtdPaginaController,
+                    decoration: const InputDecoration(hintText: 'Páginas'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _paginaLeituraController,
+                    decoration:
+                        const InputDecoration(hintText: 'Última página lida'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _qtdLidoController,
+                    decoration: const InputDecoration(
+                        hintText: 'Quantidade vezes livro foi lido'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      // Save new livro
+                      if (id == null) {
+                        await _addLivro();
+                      }
 
-                  if (id != null) {
-                    await _updateLivro(id);
-                  }
+                      if (id != null) {
+                        await _updateLivro(id);
+                      }
 
-                  // Clear the text fields
-                  _isbnController.text = '';
-                  _autorController.text = '';
-                  _tituloController.text = '';
-                  _anoController.text = '';
-                  _qtdPaginaController.text = '';
-                  _paginaLeituraController.text = '';
+                      // Clear the text fields
+                      _isbnController.text = '';
+                      _autorController.text = '';
+                      _tituloController.text = '';
+                      _anoController.text = '';
+                      _qtdPaginaController.text = '';
+                      _paginaLeituraController.text = '';
 
-                  // Close the bottom sheet
-                  Navigator.of(context).pop();
-                },
-                child: Text(id == null ? 'Create New' : 'Update'),
-              )
-            ],
-          ),
-        ));
+                      // Close the bottom sheet
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(id == null ? 'Create New' : 'Update'),
+                  )
+                ],
+              ),
+            ));
   }
 
 // Insert a new livro to the database
@@ -512,34 +530,34 @@ class _LidosTela extends State<LidosWidget> {
       ),
       body: _isLoading
           ? const Center(
-        child: CircularProgressIndicator(),
-      )
+              child: CircularProgressIndicator(),
+            )
           : ListView.builder(
-        itemCount: _livros.length,
-        itemBuilder: (context, index) => Card(
-          color: Colors.orange[200],
-          margin: const EdgeInsets.all(15),
-          child: ListTile(
-              title: Text('Título: ' + _livros[index]['titulo']),
-              subtitle: Text('Página última leitura: ' +
-                  _livros[index]['paginaLeitura'].toString()),
-              trailing: SizedBox(
-                width: 100,
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => _showForm(_livros[index]['id']),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: () => _deleteLivro(_livros[index]['id']),
-                    ),
-                  ],
-                ),
-              )),
-        ),
-      ),
+              itemCount: _livros.length,
+              itemBuilder: (context, index) => Card(
+                color: Colors.orange[200],
+                margin: const EdgeInsets.all(15),
+                child: ListTile(
+                    title: Text('Título: ' + _livros[index]['titulo']),
+                    subtitle: Text(
+                        'Última página lida: ${_livros[index]['paginaLeitura']}'),
+                    trailing: SizedBox(
+                      width: 100,
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => _showForm(_livros[index]['id']),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () => _deleteLivro(_livros[index]['id']),
+                          ),
+                        ],
+                      ),
+                    )),
+              ),
+            ),
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
         onPressed: () => _showForm(null),
@@ -562,7 +580,7 @@ class _FavoritosTela extends State<FavoritosWidget> {
 
   // This function is used to fetch all data from the database
   void _refreshLivros() async {
-    final data = await SQLHelper.getLivros();
+    final data = await SQLHelper.getLivros('favoritos');
     setState(() {
       _livros = data;
       _isLoading = false;
@@ -582,7 +600,7 @@ class _FavoritosTela extends State<FavoritosWidget> {
   final TextEditingController _editoraController = TextEditingController();
   final TextEditingController _qtdPaginaController = TextEditingController();
   final TextEditingController _paginaLeituraController =
-  TextEditingController();
+      TextEditingController();
   final TextEditingController _lidoController = TextEditingController();
   final TextEditingController _qtdLidoController = TextEditingController();
 
@@ -593,7 +611,7 @@ class _FavoritosTela extends State<FavoritosWidget> {
       // id == null -> create new livro
       // id != null -> update an existing livro
       final existingLivros =
-      _livros.firstWhere((element) => element['id'] == id);
+          _livros.firstWhere((element) => element['id'] == id);
       _isbnController.text = existingLivros['isbn'];
       _autorController.text = existingLivros['autor'];
       _tituloController.text = existingLivros['titulo'];
@@ -608,93 +626,93 @@ class _FavoritosTela extends State<FavoritosWidget> {
         elevation: 5,
         isScrollControlled: true,
         builder: (_) => Container(
-          padding: EdgeInsets.only(
-            top: 15,
-            left: 15,
-            right: 15,
-            // this will prevent the soft keyboard from covering the text fields
-            bottom: MediaQuery.of(context).viewInsets.bottom + 120,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              TextField(
-                controller: _isbnController,
-                decoration: const InputDecoration(hintText: 'ISBN'),
+              padding: EdgeInsets.only(
+                top: 15,
+                left: 15,
+                right: 15,
+                // this will prevent the soft keyboard from covering the text fields
+                bottom: MediaQuery.of(context).viewInsets.bottom + 120,
               ),
-              const SizedBox(
-                height: 10,
-              ),
-              TextField(
-                controller: _autorController,
-                decoration: const InputDecoration(hintText: 'Autor'),
-              ),
-              const SizedBox(
-                height: 10,
-              ),
-              TextField(
-                controller: _tituloController,
-                decoration: const InputDecoration(hintText: 'Título'),
-              ),
-              const SizedBox(
-                height: 10,
-              ),
-              TextField(
-                controller: _anoController,
-                decoration: const InputDecoration(hintText: 'Ano'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-              const SizedBox(
-                height: 10,
-              ),
-              TextField(
-                controller: _qtdPaginaController,
-                decoration: const InputDecoration(hintText: 'Páginas'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-              const SizedBox(
-                height: 10,
-              ),
-              TextField(
-                controller: _paginaLeituraController,
-                decoration: const InputDecoration(
-                    hintText: 'Página última leitura'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-              const SizedBox(
-                height: 10,
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  // Save new livro
-                  if (id == null) {
-                    await _addLivro();
-                  }
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TextField(
+                    controller: _isbnController,
+                    decoration: const InputDecoration(hintText: 'ISBN'),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _autorController,
+                    decoration: const InputDecoration(hintText: 'Autor'),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _tituloController,
+                    decoration: const InputDecoration(hintText: 'Título'),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _anoController,
+                    decoration: const InputDecoration(hintText: 'Ano'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _qtdPaginaController,
+                    decoration: const InputDecoration(hintText: 'Páginas'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  TextField(
+                    controller: _paginaLeituraController,
+                    decoration:
+                        const InputDecoration(hintText: 'Última página lida'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      // Save new livro
+                      if (id == null) {
+                        await _addLivro();
+                      }
 
-                  if (id != null) {
-                    await _updateLivro(id);
-                  }
+                      if (id != null) {
+                        await _updateLivro(id);
+                      }
 
-                  // Clear the text fields
-                  _isbnController.text = '';
-                  _autorController.text = '';
-                  _tituloController.text = '';
-                  _anoController.text = '';
-                  _qtdPaginaController.text = '';
-                  _paginaLeituraController.text = '';
+                      // Clear the text fields
+                      _isbnController.text = '';
+                      _autorController.text = '';
+                      _tituloController.text = '';
+                      _anoController.text = '';
+                      _qtdPaginaController.text = '';
+                      _paginaLeituraController.text = '';
 
-                  // Close the bottom sheet
-                  Navigator.of(context).pop();
-                },
-                child: Text(id == null ? 'Create New' : 'Update'),
-              )
-            ],
-          ),
-        ));
+                      // Close the bottom sheet
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(id == null ? 'Create New' : 'Update'),
+                  )
+                ],
+              ),
+            ));
   }
 
 // Insert a new livro to the database
@@ -757,34 +775,34 @@ class _FavoritosTela extends State<FavoritosWidget> {
       ),
       body: _isLoading
           ? const Center(
-        child: CircularProgressIndicator(),
-      )
+              child: CircularProgressIndicator(),
+            )
           : ListView.builder(
-        itemCount: _livros.length,
-        itemBuilder: (context, index) => Card(
-          color: Colors.orange[200],
-          margin: const EdgeInsets.all(15),
-          child: ListTile(
-              title: Text('Título: ' + _livros[index]['titulo']),
-              subtitle: Text('Página última leitura: ' +
-                  _livros[index]['paginaLeitura'].toString()),
-              trailing: SizedBox(
-                width: 100,
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => _showForm(_livros[index]['id']),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: () => _deleteLivro(_livros[index]['id']),
-                    ),
-                  ],
-                ),
-              )),
-        ),
-      ),
+              itemCount: _livros.length,
+              itemBuilder: (context, index) => Card(
+                color: Colors.orange[200],
+                margin: const EdgeInsets.all(15),
+                child: ListTile(
+                    title: Text('Título: ' + _livros[index]['titulo']),
+                    subtitle: Text(
+                        'Última página lida: ${_livros[index]['paginaLeitura']}'),
+                    trailing: SizedBox(
+                      width: 100,
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => _showForm(_livros[index]['id']),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () => _deleteLivro(_livros[index]['id']),
+                          ),
+                        ],
+                      ),
+                    )),
+              ),
+            ),
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
         onPressed: () => _showForm(null),
