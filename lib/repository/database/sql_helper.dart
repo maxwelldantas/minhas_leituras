@@ -1,12 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:minhas_leituras/repository/entity/livro.dart';
-import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart' as sql;
-import 'package:sqflite/sqflite.dart';
 
 class SQLHelper {
   static const _databaseName = "MinhasLeiturasDB.db";
-  static const _databaseVersion = 3;
+  static const _databaseVersion = 4;
 
   static const table = 'livros';
 
@@ -24,6 +22,7 @@ class SQLHelper {
         paginaLeitura INTEGER,
         lido TEXT CHECK ("lido" IN ("true","false")),
         qtdLido INTEGER,
+        favorito TEXT CHECK ("favorito" IN ("true","false")),
         criadoEm TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         atualizadoEm TIMESTAMP
     )
@@ -38,7 +37,7 @@ class SQLHelper {
   static Future<sql.Database> db() async {
     // await rootBundle.load(join('assets', 'database.db'));
     return sql.openDatabase(
-      join(await getDatabasesPath(), _databaseName),
+      _databaseName,
       version: _databaseVersion,
       onCreate: (sql.Database database, int version) async {
         await createTables(database);
@@ -56,13 +55,12 @@ class SQLHelper {
       int qtdPagina,
       int paginaLeitura,
       bool lido,
-      int qtdLido) async {
+      int qtdLido,
+      bool favorito) async {
     final db = await SQLHelper.db();
 
     Livro criarLivro = Livro(isbn, autor, titulo, ano, editora, qtdPagina,
-        paginaLeitura, lido, qtdLido);
-
-    String lidoText = lido.toString();
+        paginaLeitura, lido, qtdLido, favorito);
 
     final data = {
       'isbn': criarLivro.isbn,
@@ -72,8 +70,9 @@ class SQLHelper {
       'editora': criarLivro.editora,
       'qtdPagina': criarLivro.qtdPagina,
       'paginaLeitura': criarLivro.paginaLeitura,
-      'lido': lidoText,
-      'qtdLido': criarLivro.qtdLido
+      'lido': criarLivro.lido.toString(),
+      'qtdLido': criarLivro.qtdLido,
+      'favorito': criarLivro.favorito.toString()
     };
     final id = await db.insert('livros', data,
         conflictAlgorithm: sql.ConflictAlgorithm.replace);
@@ -81,9 +80,21 @@ class SQLHelper {
   }
 
   // Read all livros
-  static Future<List<Map<String, dynamic>>> getLivros() async {
+  static Future<List<Map<String, dynamic>>> getLivros(String? telas) async {
     final db = await SQLHelper.db();
-    return db.query('livros', orderBy: "atualizadoEm");
+    String filtro;
+    if ('paraLer'.contains(telas!)) {
+      filtro = 'false';
+      return db.query('livros', where: "lido = ?", whereArgs: [filtro], orderBy: "atualizadoEm DESC");
+    } else if ('lidos'.contains(telas)) {
+      filtro = 'true';
+      return db.query('livros', where: "lido = ?", whereArgs: [filtro], orderBy: "atualizadoEm DESC");
+    } else if ('favoritos'.contains(telas)) {
+      filtro = 'true';
+      return db.query('livros', where: "favorito = ?", whereArgs: [filtro], orderBy: "atualizadoEm DESC");
+    }
+    return db.query('');
+    // return db.query('livros', orderBy: "atualizadoEm");
   }
 
   // Read a single livro by id
@@ -104,13 +115,12 @@ class SQLHelper {
       int qtdPagina,
       int paginaLeitura,
       bool lido,
-      int qtdLido) async {
+      int qtdLido,
+      bool favorito) async {
     final db = await SQLHelper.db();
 
     Livro atualizarLivro = Livro(isbn, autor, titulo, ano, editora, qtdPagina,
-        paginaLeitura, lido, qtdLido);
-
-    String lidoText = lido.toString();
+        paginaLeitura, lido, qtdLido, favorito);
 
     final data = {
       'isbn': atualizarLivro.isbn,
@@ -120,8 +130,9 @@ class SQLHelper {
       'editora': atualizarLivro.editora,
       'qtdPagina': atualizarLivro.qtdPagina,
       'paginaLeitura': atualizarLivro.paginaLeitura,
-      'lido': lidoText,
+      'lido': atualizarLivro.lido.toString(),
       'qtdLido': atualizarLivro.qtdLido,
+      'favorito': atualizarLivro.favorito.toString(),
       'atualizadoEm': DateTime.now().toString()
     };
 
